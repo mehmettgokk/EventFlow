@@ -1,4 +1,3 @@
-// composables/useClassifications.ts
 import { ref } from 'vue'
 
 export interface CategoryOption {

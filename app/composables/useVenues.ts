@@ -1,4 +1,3 @@
-// composables/useVenues.ts
 import { ref } from 'vue'
 import type { Venue } from '../types/event'
 
