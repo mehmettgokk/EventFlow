@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@nuxt/ui": "^4.11.1",
+    "@pinia/nuxt": "^1.0.2",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-bubble-menu": "^3.31.3",
     "@tiptap/extension-code": "^3.31.3",
@@ -29,9 +30,15 @@
     "@tiptap/suggestion": "^3.31.3",
     "@tiptap/vue-3": "^3.31.3",
     "nuxt": "^4.5.2",
+    "pinia": "^4.0.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@vue/test-utils": "^2.5.0",
+    "vitest": "^5.0.0"
   }
 }
