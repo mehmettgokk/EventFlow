@@ -10,11 +10,13 @@ export const useFavoritesStore = defineStore('favorites', () => {
   // LocalStorage'dan favorileri okuma
   const loadFavorites = () => {
     if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(storageKey)
-        if (raw) favorites.value = JSON.parse(raw)
-      } catch (e) {
-        console.error('Favoriler yüklenirken hata:', e)
+      const stored = localStorage.getItem('favorites')
+      if (stored) {
+        try {
+          favorites.value = JSON.parse(stored)
+        } catch (e) {
+          favorites.value = []
+        }
       }
     }
   }
@@ -29,20 +31,43 @@ export const useFavoritesStore = defineStore('favorites', () => {
       }
     }
   }
-
+  
 
   const isFavorite = (eventId: string): boolean => {
     return favorites.value.some((item) => item.id === eventId)
   }
 
   const toggleFavorite = (event: TicketmasterEvent) => {
-    const index = favorites.value.findIndex((item) => item.id === event.id)
+    const toast = useToast()
+    
+    const index = favorites.value.findIndex(item => item.id === event.id)
+
     if (index > -1) {
+      
       favorites.value.splice(index, 1)
+
+      toast.add({
+        title: 'Favorilerden Çıkarıldı',
+        description: `"${event.name}" kaldırıldı.`,
+        color: 'neutral',
+        icon: 'i-heroicons-heart'
+      })
     } else {
+      
       favorites.value.push(event)
+
+      toast.add({
+        title: 'Favorilere Eklendi',
+        description: `"${event.name}" kaydedildi.`,
+        color: 'success',
+        icon: 'i-heroicons-check-circle'
+      })
     }
-    saveFavorites()
+
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('favorites', JSON.stringify(favorites.value))
+    }
   }
 
   if (typeof window !== 'undefined') {

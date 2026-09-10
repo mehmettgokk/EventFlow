@@ -1,126 +1,176 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { EventItem } from '~/types/event'
+import { ref, computed } from 'vue'
+import type { TicketmasterEvent } from '~/types/event'
 import { useFavoritesStore } from '~/stores/favorites'
 
 const props = defineProps<{
-  event: EventItem
+  event: TicketmasterEvent
 }>()
 
 const favoritesStore = useFavoritesStore()
+const isConfirmOpen = ref(false)
 
-const isFav = computed(() => {
-  return favoritesStore.isFavorite(props.event.id)
-})
 
-// Mavi varsayılanlar yerine en kaliteli ve doğru afişi seçen hesaplama
 const eventImage = computed(() => {
-  const images = props.event.images
-  if (!images || images.length === 0) {
-    return 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80'
+  if (!props.event.images || props.event.images.length === 0) {
+    return 'https://placehold.co/600x400/18181b/ffffff?text=Etkinlik+Görseli+Yok'
   }
-
-  // 1. Tercih: 600px ve üzeri 16:9 yatay afiş
-  const wide = images.find(img => img.ratio === '16_9' && (img.width || 0) >= 600)
-  if (wide) return wide.url
-
-  // 2. Tercih: Herhangi bir 16:9 afiş
-  const anyRatio = images.find(img => img.ratio === '16_9')
-  if (anyRatio) return anyRatio.url
-
-  // 3. Tercih: Çözünürlüğü en yüksek olan görsel
-  const sorted = [...images].sort((a, b) => (b.width || 0) - (a.width || 0))
-  return sorted[0]?.url || images[0].url
+  const ratio169 = props.event.images.find(img => img.ratio === '16_9' && img.width >= 600)
+  return ratio169?.url || props.event.images[0].url
 })
+
 
 const formattedDate = computed(() => {
   const dateStr = props.event.dates?.start?.localDate
-  if (!dateStr) return 'Tarih Belirtilmedi'
-  const [year, month, day] = dateStr.split('-').map(Number)
-  return new Date(year, month - 1, day).toLocaleDateString('tr-TR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  })
+  const timeStr = props.event.dates?.start?.localTime
+  if (!dateStr) return 'Tarih Belirtilmemiş'
+
+  try {
+    const d = new Date(dateStr)
+    const formatted = d.toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
+    return timeStr ? `${formatted} • ${timeStr.slice(0, 5)}` : formatted
+  } catch {
+    return dateStr
+  }
 })
 
-const venueName = computed(() => {
-  return props.event._embedded?.venues?.[0]?.name || 'Mekan Belirtilmedi'
+// Mekan ve Şehir bilgisi
+const venueInfo = computed(() => {
+  const venues = props.event._embedded?.venues
+  if (!venues || venues.length === 0) return 'Mekan Belirtilmemiş'
+  const v = venues[0]
+  const city = v.city?.name
+  const name = v.name
+  if (city && name) return `${name}, ${city}`
+  return name || city || 'Mekan Belirtilmemiş'
 })
+
+// Kategori adı
+const genreName = computed(() => {
+  return props.event.classifications?.[0]?.genre?.name ||
+    props.event.classifications?.[0]?.segment?.name ||
+    'Etkinlik'
+})
+
+// Favori buton etkileşimi
+const handleFavoriteClick = () => {
+  if (favoritesStore.isFavorite(props.event.id)) {
+    isConfirmOpen.value = true
+  } else {
+    favoritesStore.toggleFavorite(props.event)
+  }
+}
+
+const confirmRemove = () => {
+  favoritesStore.toggleFavorite(props.event)
+  isConfirmOpen.value = false
+}
 </script>
 
 <template>
-  <div class="group flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300">
-    <!-- Kart Görsel Alanı -->
-    <div class="relative aspect-[16/9] w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
-      <img
-        :src="eventImage"
-        :alt="event.name"
-        class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-        loading="lazy"
-      />
+  <div>
+    <div class="group relative flex flex-col h-full overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
 
-      <!-- Favori Butonu -->
-      <button
-        type="button"
-        class="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 backdrop-blur-md transition-all hover:scale-110 active:scale-95 text-white"
-        :aria-label="isFav ? 'Favorilerden Çıkar' : 'Favorilere Ekle'"
-        @click.stop="favoritesStore.toggleFavorite(event)"
-      >
-        <UIcon
-          name="i-heroicons-heart-solid"
-          class="h-5 w-5 transition-colors"
-          :class="isFav ? 'text-red-500' : 'text-white/80 hover:text-white'"
+      <div class="relative aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+        <img
+          :src="eventImage"
+          :alt="event.name"
+          class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
         />
-      </button>
 
-      <!-- Kategori Rozeti -->
-      <span
-        v-if="event.classifications?.[0]?.segment?.name"
-        class="absolute top-3 left-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-black/60 backdrop-blur-md text-white border border-white/10"
-      >
-        {{ event.classifications[0].segment.name }}
-      </span>
-    </div>
+        <!-- Kategori Rozeti -->
+        <span class="absolute top-3 left-3 px-2.5 py-1 text-xs font-medium rounded-full bg-black/60 text-white backdrop-blur-md">
+          {{ genreName }}
+        </span>
 
-    <!-- İçerik Alanı -->
-    <div class="flex flex-1 flex-col p-5">
-      <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
-        <span class="flex items-center gap-1">
-          <UIcon name="i-heroicons-calendar" class="w-4 h-4 text-primary-500" />
-          {{ formattedDate }}
-        </span>
-        <span>•</span>
-        <span class="flex items-center gap-1 truncate">
-          <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-gray-400" />
-          {{ venueName }}
-        </span>
+        <!-- Favori Butonu -->
+        <div class="absolute top-3 right-3">
+          <UButton
+            :icon="favoritesStore.isFavorite(event.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+            :color="favoritesStore.isFavorite(event.id) ? 'error' : 'neutral'"
+            variant="subtle"
+            size="sm"
+            class="rounded-full cursor-pointer shadow-sm"
+            aria-label="Favorilere ekle veya çıkar"
+            @click.stop.prevent="handleFavoriteClick"
+          />
+        </div>
       </div>
 
-      <h3 class="font-bold text-base text-gray-900 dark:text-white line-clamp-2 mb-4 group-hover:text-primary-500 transition-colors">
-        {{ event.name }}
-      </h3>
+      <!-- Bilgi Alanı -->
+      <div class="flex flex-col flex-1 p-5 justify-between gap-4">
+        <div class="space-y-2">
+          <!-- Tarih -->
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400">
+            <UIcon name="i-heroicons-calendar" class="w-4 h-4 shrink-0" />
+            <span>{{ formattedDate }}</span>
+          </div>
 
-      <div class="mt-auto pt-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 text-sm">
-        <NuxtLink
-          :to="`/events/${event.id}`"
-          class="font-semibold text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
-        >
-          İncele
-          <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
-        </NuxtLink>
+          <!-- Başlık -->
+          <NuxtLink :to="`/events/${event.id}`" class="block">
+            <h3 class="font-bold text-gray-900 dark:text-white text-base line-clamp-2 hover:text-primary-500 transition-colors">
+              {{ event.name }}
+            </h3>
+          </NuxtLink>
 
-        <a
-          v-if="event.url"
-          :href="event.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center gap-1"
-        >
-          Bilet Al
-          <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5" />
-        </a>
+          <!-- Mekan -->
+          <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <UIcon name="i-heroicons-map-pin" class="w-4 h-4 shrink-0" />
+            <span class="truncate">{{ venueInfo }}</span>
+          </div>
+        </div>
+
+        <!-- Detay Butonu -->
+        <div class="pt-2 border-t border-gray-100 dark:border-gray-800/60">
+          <UButton
+            :to="`/events/${event.id}`"
+            variant="ghost"
+            color="primary"
+            size="sm"
+            trailing-icon="i-heroicons-arrow-right"
+            block
+          >
+            Detayları İncele
+          </UButton>
+        </div>
       </div>
     </div>
+
+    <!-- Favoriden Çıkarma Onay Modalı -->
+    <UModal v-model:open="isConfirmOpen">
+      <template #content>
+        <div class="p-6 space-y-4 text-left">
+          <div class="flex items-center gap-3 text-amber-500">
+            <UIcon name="i-heroicons-exclamation-triangle" class="w-7 h-7 shrink-0" />
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+              Favorilerden Kaldırılsın mı?
+            </h3>
+          </div>
+
+          <p class="text-sm text-gray-600 dark:text-gray-300">
+            <strong>{{ event.name }}</strong> etkinliğini favoriler listenizden çıkarmak istediğinizden emin misiniz?
+          </p>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton
+              label="Vazgeç"
+              color="neutral"
+              variant="ghost"
+              @click="isConfirmOpen = false"
+            />
+            <UButton
+              label="Evet, Kaldır"
+              color="error"
+              @click="confirmRemove"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
