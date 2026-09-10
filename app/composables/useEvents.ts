@@ -1,23 +1,28 @@
 import { ref } from 'vue'
-import type { 
-  TicketmasterEvent, 
-  EventsApiResponse, 
-  EventQueryParams, 
-  PageInfo 
-} from '../types/event'
+import type { TicketmasterEvent, EventQueryParams, PageInfo } from '~/types/event'
+
+
+interface DiscoveryApiResponse {
+  _embedded?: {
+    events?: TicketmasterEvent[]
+  }
+  page?: PageInfo
+}
 
 export const useEvents = () => {
   const config = useRuntimeConfig()
-  
-  // Reaktif durum değişkenleri
+  const apiKey = config.public.ticketmasterApiKey
+  const baseUrl = config.public.ticketmasterBaseUrl
+
   const events = ref<TicketmasterEvent[]>([])
   const currentEvent = ref<TicketmasterEvent | null>(null)
   const pageInfo = ref<PageInfo>({
-    size: 20,
+    size: 12,
     totalElements: 0,
     totalPages: 0,
     number: 0
   })
+
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
 
@@ -27,58 +32,54 @@ export const useEvents = () => {
     error.value = null
 
     try {
-      const response = await $fetch<EventsApiResponse>(
-        `${config.public.ticketmasterBaseUrl}/events.json`,
-        {
-          query: {
-            apikey: config.public.ticketmasterApiKey,
-            size: params.size || 20,
-            page: params.page || 0,
-            sort: params.sort || 'date,asc',
-            keyword: params.keyword || undefined,
-            city: params.city || undefined,
-            classificationName: params.classificationName || undefined,
-            startDateTime: params.startDateTime || undefined
-          }
-        }
-      )
+      // Geçmiş etkinlikleri elemek için 
+      const nowIso = new Date().toISOString().split('.')[0] + 'Z'
 
-      events.value = response._embedded?.events || []
-      pageInfo.value = response.page || {
-        size: 20,
-        totalElements: 0,
-        totalPages: 0,
-        number: 0
+      // sayfa numarası 
+      const targetPage = Number(params.page) || 0
+
+      const query: Record<string, any> = {
+        apikey: apiKey,
+        size: params.size || 12,
+        page: targetPage,
+        sort: params.sort || 'date,asc',
+        startDateTime: params.startDateTime || nowIso
+      }
+
+      if (params.keyword?.trim()) query.keyword = params.keyword.trim()
+      if (params.city?.trim()) query.city = params.city.trim()
+      if (params.classificationName?.trim()) query.classificationName = params.classificationName.trim()
+
+      const data = await $fetch<DiscoveryApiResponse>(`${baseUrl}/events.json`, { query })
+
+      events.value = data._embedded?.events || []
+      pageInfo.value = {
+        size: data.page?.size || 12,
+        totalElements: data.page?.totalElements || 0,
+        totalPages: data.page?.totalPages || 0,
+        number: data.page?.number || 0
       }
     } catch (err: any) {
-      events.value = []
       error.value = err?.data?.message || err?.message || 'Etkinlikler yüklenirken bir hata oluştu.'
+      events.value = []
     } finally {
       isLoading.value = false
     }
   }
 
-  // Tekil etkinlik detayını ID ile çekme
+  // Tekil etkinlik detayını çekme
   const fetchEventById = async (id: string) => {
     isLoading.value = true
     error.value = null
-    currentEvent.value = null
 
     try {
-      const response = await $fetch<TicketmasterEvent>(
-        `${config.public.ticketmasterBaseUrl}/events/${id}.json`,
-        {
-          query: {
-            apikey: config.public.ticketmasterApiKey
-          }
-        }
-      )
-
+      const response = await $fetch<TicketmasterEvent>(`${baseUrl}/events/${id}.json`, {
+        query: { apikey: apiKey }
+      })
       currentEvent.value = response
-      return response
     } catch (err: any) {
-      error.value = err?.data?.message || err?.message || 'Etkinlik detayı alınamadı.'
-      return null
+      error.value = err?.data?.message || err?.message || 'Etkinlik detayı bulunamadı.'
+      currentEvent.value = null
     } finally {
       isLoading.value = false
     }
