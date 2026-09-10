@@ -2,13 +2,6 @@
   "name": "EventFlow",
   "type": "module",
   "private": true,
-  "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
-  },
   "dependencies": {
     "@nuxt/ui": "^4.11.1",
     "@pinia/nuxt": "^1.0.2",
@@ -40,7 +33,16 @@
     "@iconify-json/heroicons": "^1.2.3",
     "@types/node": "^22.20.2",
     "@vue/test-utils": "^2.5.0",
+    "happy-dom": "^20.14.3",
     "vitest": "^5.0.0",
     "vue-tsc": "^3.3.11"
+  },
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "test": "vitest run"
   }
 }
